@@ -1,0 +1,70 @@
+## INFO ##
+## INFO ##
+
+# Include rules
+include tuplet/Tuprules.tup
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+CPPPATH += -I$(INCLUDE_DIR)
+LIBPATH += -L$(LIBRARY_DIR)
+lib      = syswrap
+
+#------------------------------------------------------------------------------#
+# Analyze sources
+: foreach $(SOURCE_DIR)/*.c |> !analyze |>
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Compile objects
+: foreach $(SOURCE_DIR)/*.c                                                    \
+    |> !to_obj                                                                 \
+    |> $(BUILD_DIR)/%B.$(OBJ_EXT) {lib_build}
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Build shared library
+: {lib_build}                                                                  \
+    |> !to_lib $(LIBS)                                                         \
+    |> $(LIBRARY_DIR)/lib$(lib).$(LIB_EXT) {lib}
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Build static library
+: {lib_build}                                                                  \
+    |> !to_arc                                                                 \
+    |> $(LIBRARY_DIR)/lib$(lib).$(ARC_EXT) {arc}
+
+
+
+#------------------------------------------------------------------------------#
+# Analyze test-source
+: foreach tests/main-*.c |> !analyze |>
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Compile test-sources into objects
+: foreach tests/main-*.c                                                     \
+    |> !to_obj                                                                 \
+    |> $(BUILD_DIR)/tests/%B.$(OBJ_EXT) {bin_build}
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Build binaries from test-objects
+LIBS = -l$(lib)
+: foreach {bin_build} | {lib}                                                  \
+    |> !to_bin $(LIBS)                                                         \
+    |> $(BINARY_DIR)/tests/%B$(BIN_EXT) {bin}
+
+#- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+# Run sample binaries
+ENV_VARS = LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(LIBRARY_DIR)
+: foreach {bin} | {lib} |> !run_it |>
+
+
+
+#------------------------------------------------------------------------------#
+# Debug headers and sources (pre-processour output)
+ifdef DEVEL
+    # #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # : foreach $(SOURCE_DIR)/*.c $(INCLUDE_DIR)/meaculpa/*.h                    \
+    #     |> !to_cpp                                                             \
+    #     |> $(BUILD_DIR)/cpp-out/%B.pp.%e
+
+    # #- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - #
+    # : foreach samples/main-*.c                                                 \
+    #     |> !to_cpp                                                             \
+    #     |> $(BUILD_DIR)/cpp-out/samples/%B.pp.%e
+endif
